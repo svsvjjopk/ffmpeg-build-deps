@@ -15,6 +15,8 @@ concurrency:
 
 jobs:
   ffmpeg:
+    permissions:
+      contents: write
     name: ffmpeg (${{ matrix.name }})
     # https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu
     # https://trac.ffmpeg.org/wiki/CompilationGuide/macOS
@@ -273,18 +275,18 @@ jobs:
         if: ${{ matrix.os_type == 'windows' }}
         uses: msys2/setup-msys2@v2
         with:
-          msystem: ucrt64
+          msystem: clang64
           update: true
           install: >-
             diffutils
             git
             make
             pkg-config
-            mingw-w64-ucrt-x86_64-binutils
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-onevpl
-            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-clang-x86_64-binutils
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-onevpl
+            mingw-w64-clang-x86_64-nasm
+            mingw-w64-clang-x86_64-clang
 
       - name: Initialize Submodules
         # libx265 has issues when using the recursive method of the first checkout action
@@ -335,6 +337,8 @@ jobs:
           root_path: ${{ steps.root.outputs.root_path }}
           CCPREFIX: ${{ steps.cross.outputs.CCPREFIX }}
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           echo "::group::configure extra flags for cross compilation"
           extra_configure=""
           if [[ ${{ matrix.arch }} != "x86_64" ]]; then
@@ -350,7 +354,6 @@ jobs:
           fi
           echo "$extra_configure"
           echo "::endgroup::"
-
           echo "::group::configure"
           PATH="$root_path/bin:$PATH" cmake -G "${{ matrix.cmake_generator }}" \
             $extra_configure \
@@ -377,6 +380,8 @@ jobs:
           CCPREFIX: ${{ steps.cross.outputs.CCPREFIX }}
         working-directory: ffmpeg_sources/x264
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           echo "::group::configure options"
           ./configure --help || true  # this command has a non zero exit status, but we should continue anyway
           echo "::endgroup::"
@@ -425,6 +430,8 @@ jobs:
           CCPREFIX: ${{ steps.cross.outputs.CCPREFIX }}
         working-directory: ffmpeg_sources/x265_git
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           echo "::group::configure extra flags for cross compilation"
 
           # not currently supported in `aarch64`
@@ -473,6 +480,8 @@ jobs:
         working-directory: ffmpeg_sources/nv-codec-headers
         # https://trac.ffmpeg.org/wiki/HWAccelIntro#NVENC
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           echo "::group::patch Makefile"
           # allow `PREFIX` to be overridden
           sed -i 's/PREFIX =/PREFIX ?=/g' Makefile
@@ -491,6 +500,8 @@ jobs:
           root_path: ${{ steps.root.outputs.root_path }}
         working-directory: ffmpeg_sources/ffmpeg
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           echo "::group::configure options"
           ./configure --help || true  # this command has a non zero exit status, but we should continue anyway
           echo "::endgroup::"
@@ -529,6 +540,8 @@ jobs:
             PKG_CONFIG_PATH="$root_path/ffmpeg_build/lib/pkgconfig:/usr/lib/${{ matrix.host }}/pkgconfig" \
             ./configure \
             $extra_configure \
+            --cc=clang \
+            --cxx=clang++ \
             --prefix="$root_path/ffmpeg_build" \
             --pkg-config-flags="--static" \
             --extra-cflags="-I$root_path/ffmpeg_build/include" \
@@ -578,6 +591,8 @@ jobs:
         env:
           root_path: ${{ steps.root.outputs.root_path }}
         run: |
+          export CC=`which clang`
+          export CXX=`which clang++`
           mkdir -p build
           cd build
 
@@ -617,53 +632,11 @@ jobs:
         run: |
           rm -f -r ./ffmpeg_build/share
           rm -f -r ./ffmpeg_build/lib/pkgconfig
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: ./ffmpeg_build/
-
-  update_dist:
-    # only the commit is conditional, so the rest of the job can be verified on PRs
-    name: Update dist
-    needs: ffmpeg
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout dist
-        uses: actions/checkout@v4
-        with:
-          ref: dist
-          path: dist
-          persist-credentials: false  # otherwise, the token used is the GITHUB_TOKEN, instead of the personal token
-          fetch-depth: 0  # otherwise, will fail to push refs to dest repo
-
-      - name: Cleanup
+      - name: Generate tar
         run: |
-          rm -f -r dist/ffmpeg/*/share
-          rm -f -r dist/ffmpeg/*/lib/pkgconfig
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+          echo ${{ github.sha }} > Release.txt
+          tar -cvf ffmpeg.${{ github.ref_name }}.${{ matrix.name }}.tar -C ./ffmpeg_build .
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          path: dist/ffmpeg
-
-      - name: Debug
-        run: |
-          ls -R dist/ffmpeg
-
-      - name: Commit dist
-        if: >-
-          startsWith(github.repository, 'LizardByte/') &&
-          github.ref == 'refs/heads/master' &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: actions-js/push@v1.5
-        with:
-          github_token: ${{ secrets.GH_BOT_TOKEN }}
-          author_email: ${{ secrets.GH_BOT_EMAIL }}
-          author_name: ${{ secrets.GH_BOT_NAME }}
-          directory: dist
-          branch: dist
-          force: false
-          message: "Commit ${{ github.sha }}"
+          files: ffmpeg.${{ github.ref_name }}.${{ matrix.name }}.tar

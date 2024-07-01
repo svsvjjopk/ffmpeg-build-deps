@@ -48,6 +48,8 @@ endif ()
 execute_process(
         COMMAND ${LEADING_SH_COMMAND} ./configure
             --disable-all
+            --cc=clang
+            --cxx=clang++
             --disable-autodetect
             --disable-iconv
             --enable-avcodec
