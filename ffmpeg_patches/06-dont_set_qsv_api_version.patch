@@ -1,0 +1,63 @@
+From e37aaf943791a8dc1c8d8fdbd343ad01d2dac4ee Mon Sep 17 00:00:00 2001
+From: svsvjjopk <nelson.tu@cloudsky.com>
+Date: Thu, 4 Jul 2024 16:05:41 +0800
+Subject: [PATCH 1/2] qsv.c: Dont specify qsv api version
+
+---
+ libavcodec/qsv.c | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/libavcodec/qsv.c b/libavcodec/qsv.c
+index 756362562771a..1304cf4c8ad8b 100644
+--- a/libavcodec/qsv.c
++++ b/libavcodec/qsv.c
+@@ -522,17 +522,6 @@ static int qsv_new_mfx_loader(AVCodecContext *avctx,
+         goto fail;
+     }
+ 
+-    impl_value.Type = MFX_VARIANT_TYPE_U32;
+-    impl_value.Data.U32 = pver->Version;
+-    sts = MFXSetConfigFilterProperty(cfg,
+-                                     (const mfxU8 *)"mfxImplDescription.ApiVersion.Version",
+-                                     impl_value);
+-    if (sts != MFX_ERR_NONE) {
+-        av_log(avctx, AV_LOG_ERROR, "Error adding a MFX configuration "
+-               "property: %d\n", sts);
+-        goto fail;
+-    }
+-
+     *ploader = loader;
+ 
+     return 0;
+
+From 0b19b19e48f1c66f9ab0919350e92a1833e54ef2 Mon Sep 17 00:00:00 2001
+From: svsvjjopk <nelson.tu@cloudsky.com>
+Date: Thu, 4 Jul 2024 16:07:32 +0800
+Subject: [PATCH 2/2] hwcontext_qsv.c: Dont specify qsv api version
+
+---
+ libavutil/hwcontext_qsv.c | 11 -----------
+ 1 file changed, 11 deletions(-)
+
+diff --git a/libavutil/hwcontext_qsv.c b/libavutil/hwcontext_qsv.c
+index 1bfda9e69b380..32040f7499b88 100644
+--- a/libavutil/hwcontext_qsv.c
++++ b/libavutil/hwcontext_qsv.c
+@@ -882,17 +882,6 @@ static int qsv_new_mfx_loader(void *ctx,
+         goto fail;
+     }
+ 
+-    impl_value.Type = MFX_VARIANT_TYPE_U32;
+-    impl_value.Data.U32 = pver->Version;
+-    sts = MFXSetConfigFilterProperty(cfg,
+-                                     (const mfxU8 *)"mfxImplDescription.ApiVersion.Version",
+-                                     impl_value);
+-    if (sts != MFX_ERR_NONE) {
+-        av_log(ctx, AV_LOG_ERROR, "Error adding a MFX configuration "
+-               "property: %d.\n", sts);
+-        goto fail;
+-    }
+-
+     impl_value.Type = MFX_VARIANT_TYPE_U16;
+     impl_value.Data.U16 = 0x8086; // Intel device only
+     sts = MFXSetConfigFilterProperty(cfg,
