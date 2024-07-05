@@ -282,11 +282,15 @@ jobs:
             git
             make
             pkg-config
+            wget
             mingw-w64-clang-x86_64-binutils
             mingw-w64-clang-x86_64-cmake
-            mingw-w64-clang-x86_64-onevpl
             mingw-w64-clang-x86_64-nasm
             mingw-w64-clang-x86_64-clang
+      - name: Install oneVPL 2023.3.1
+        run: |
+          wget https://repo.msys2.org/mingw/clang64/mingw-w64-clang-x86_64-onevpl-2023.3.1-1-any.pkg.tar.zst
+          pacman --noconfirm -U mingw-w64-clang-x86_64-onevpl-2023.3.1-1-any.pkg.tar.zst
 
       - name: Initialize Submodules
         # libx265 has issues when using the recursive method of the first checkout action
